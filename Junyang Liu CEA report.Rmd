@@ -1,0 +1,506 @@
+---
+title: "261 Project - Consumer Expenditure Analysis"
+author: "Junyang Liu"
+date: "12/7/2016"
+output: pdf_document
+---
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Math 261A Class Project - Consumer Expenditure Analysis
+
+
+
+
+## Background Introduction & Motivation
+
+
+
+
+U.S. Census Bureau official site gives much resources of quality data about the people or economy. Our Consumer Expenditure Survey data provides the information about the consumer’s expenditures, buying habits, and the characteristics of those consumers.The reason why we are particularly interested in this topic is that the result of consumer expenditure performers an important role in the our real life.
+
+
+For individuals, the statistics of total expenditure influence the consumers’ buying habits. Of course, it also leads the tendency of consume purpose.
+
+
+For companies, the result of the total expenditure statistics has a great effect on almost all of company's’ investments. Sometimes, it decides whether companies will survive or not.
+
+
+For Government, the result of the total expenditure statistics provides a crucial factor when the government do any decision because it is important to determine the economic performance.
+
+
+
+
+## Questions
+In this analysis, we are interested in tackling down a combination of problems that contain both interesting trivial question and noteworthy non-trivial question.
+Our set of questions includes:
+
+
+
+
+* What is the average American consumption level for current quarter (4th quarter 2015)?
+* Is it true that if a household has more women than men, then this household is tend to spend more? If true, how much does an addition women spend compared to additional men?
+* With given parameters, what is the best model to predict our expenditure? What does it tell us?
+* Are these predictors a valid predictor in our best model? Does it violate any assumptions? How can we make sure our best model is valid model?
+* Is there any outliers? Are they reasonable? What do they tell us? 
+
+
+  
+## The Process
+  
+### Getting data
+
+
+
+
+This data set is from Consumer Expenditure Survey, collected from U.S census bureau using Data Ferret.[link](https://dataferrett.census.gov/). It is the Consumer Expenditure data in the fourth quarter of 2015. We picked 11 variables that contains both individual features such as age and gender, as well as household expenditure features such as home operating cost and education cost. The full list of variables and explanation is listed down below:
+
+
+
+
+Variable Names | Variable Explanation
+--------------------------|--------------------------------
+age2 |  Age of spouse
+age_ref | Age of ref. person
+as_comp1 |  Number of Males Over 16 In A Household
+as_comp2 | Number of Females Over 16 In A Household
+bls_urbn | Rural/Urban
+cshcntbx | Cash Contribution
+foodcq | Food Current Quarter
+housopcq | Household Operation Current Quarters
+totexpcq | Total Expenditure This Quarter
+educacq | Education Current Quarters
+vehq | Number of Vehicle 
+
+
+
+
+```{r,echo=FALSE}
+data<-read.table("projectDATA.txt",sep =",", header = TRUE)
+```
+
+
+### Cleaning data & deleting unnecessary variables
+The first three columns of the data are id, and system automated variables. These variables are not quite useful in our analysis, so we have decided to delete these three unnecessary variables. 
+
+
+
+
+```{r,echo = FALSE}
+summary(data)
+```
+
+
+
+
+We believe that a non-positive value in our response `TOTEXPCQ` can not be applied to the real world. It cannot help us to identify the features of consumer expenditure either. Therefore,we eliminated all the responses that have a non-positive value. 
+
+
+We also deleted all the observations where the spouse's age `AGE2` is `-1`. The reason is that `-1` represents those people who don't have spouse. However, Since this survey is household based, we want to make sure that the household expenditure is a family effort, not a personal effort.
+
+
+We also deleted cash contribution predictor `CSHCNTBX`. The reason is that most of observations of this variable are either `0` or `-1`. We believe a numeric variable contain such values for most of its observations is not good for analysis. 
+
+
+Lastly, we transformed variables that we believe should be factor variables into the right class. In our data analysis, the numeric variable rural/urban `BLS_URBN` is transformed into factor variable. 
+
+
+
+
+```{r, echo = FALSE}
+id <- 1:5274 # 5274 is total number of data
+data <- cbind(data,id)
+good_data<-data[,c(-1,-2,-3,-9)][data$AGE2!=(-1) & data$TOTEXPCQ!=0, ]
+deleted_good_data <- good_data[,-11]
+deleted_good_data$BLS_URBN <- as.factor(deleted_good_data$BLS_URBN)
+```
+
+
+
+
+### Feature Analysis
+
+
+
+
+In this feature analysis, we are trying to answer questions:
+
+
+* What is the average American consumption level for current quarter (4th quarter 2015)?
+
+* Is it true that if a household has more women than men, then this household is tend to spend more? If true, how much does an additional women spend compared to additional men?
+
+
+
+
+##### First question 
+
+
+we believe the median total expenditure is the best representation of the average U.S consumer expenditure level.
+
+
+
+
+```{r, echo = FALSE}
+summary(deleted_good_data$TOTEXPCQ)
+```
+From the above results we can tell that the average American consumption level is around $3582.
+ 
+##### Second question
+
+
+Since we only have number of male over 16 in a household `AS_COMP1` and number of female over 16 in a household `AS_COMP2` two variables, we are going to create two new ratio variables `male_ratio` and `female_ratio`. In order to do that, we created a variable called `AS_COMP3`, which is the total number of people over 16 in a household to help us calculate ratio for men and women.
+
+
+
+
+```{r,echo=FALSE}
+AS_COMP3<-deleted_good_data$AS_COMP1+deleted_good_data$AS_COMP2
+male_ratio<-deleted_good_data$AS_COMP1/AS_COMP3
+female_ratio<-deleted_good_data$AS_COMP2/AS_COMP3
+good_data_feature<-cbind(deleted_good_data,male_ratio,female_ratio)
+```
+After creating necessary variables, we combine them to our data and fit them with Single Linear Model and the plotted results shows below.
+
+
+
+
+```{r,echo = FALSE}
+fit1<-lm(TOTEXPCQ ~ male_ratio, data = good_data_feature)
+fit2<-lm(TOTEXPCQ ~ female_ratio, data = good_data_feature)
+```
+```{r,echo=FALSE}
+plot(NULL, xlim = c(0,1), ylim=c(3000, 7000), main = "Total Exp vs Ratio of female/male +16 yrs Old per Household", ylab = "Total Expenditure In Current Quarter", xlab = "Ratio")
+legend(0,7000,c("Female","Male"),lty=c(1,1),lwd=c(2.5,2.5),col=c("red","blue"))
+abline(fit1, col = "blue")
+abline(fit2, col = "red")
+```
+From the above graph, we can clearly see the upward trending red line that indicates that as the ratio of female in a family goes up, the corresponding total expenditure goes up as well. On the other hand, the downward trending blue line, which indicates the male ratio in a family, decreases as the ratio of female increases. This also shows that the when male ratio in a family is low(female ratio is high), then we have higher total expenditure.
+
+
+
+
+For the second part of the feature analysis question, we need to take a look at the slope of each variable. At first, we build a model called `fullmodel` with every variable included. 
+
+
+```{r,echo = FALSE}
+fullmodel<-lm(TOTEXPCQ ~ ., data = deleted_good_data)
+summary(fullmodel)
+```
+From the full model we can interpret our variable `AS_COMP1`and `AS_COMP2` as below:
+
+
+
+
+* `AS_COMP1`: With all other predictors fixed, on average, the total expenditure of a household will decrease by $105.1481 for every new male introduced in the household. 
+
+* `AS_COMP2`: With all other predictors fixed, on average, the total expenditure of a household will increase by $266.7162 for every new female introduced in the household. 
+
+
+Therefore, we can conclude that when introducing a female into family, the total expenditure is 371.8656 higher than introducing a male.   
+
+
+
+
+
+
+
+
+### Exploratory Data Analysis & Find Our Best Model
+
+
+
+
+```{r,echo=FALSE}
+library(leaps)
+attach(deleted_good_data)
+all <- regsubsets(TOTEXPCQ ~.,  method = "exhaustive",data = deleted_good_data,nvmax = 15)
+Cp <- summary(all)$cp
+AdjR2 <- summary(all)$adjr2
+SSRes <- summary(all)$rss
+R2 <- summary(all)$rsq
+Matrix <- summary(all)$which
+p <- apply(Matrix,1, sum)
+MSE <- SSRes/(nrow(deleted_good_data)-p)
+output <- cbind(p, Matrix, SSRes, R2, AdjR2, MSE, Cp)
+output
+```
+From the output above, we notice that the best models we want to choose are #6, #7, and #8. They have smallest Cp, small SSres, and good R^2^ and AdjR^2^.
+
+
+#### Assumptions
+
+
+* we assume that our data is still valid after deleting all unnecessary variables and observations
+
+
+* we assume the response and predictors have linear relationship
+
+
+* we assume our variables are independent.
+
+
+* we assume the variables we choose is to our best knowledge. they are unbiased and only variables available.
+
+
+
+
+#### Execution
+
+
+```{r,eval=FALSE, echo = FALSE,eval = FALSE}
+summary(step(fullmodel,direction = "both"))
+```
+Now we have all the key parameters for our best model, which are `AGE_REF`, `BLS_URBN` ,`FOODCQ`,`HOUSOPCQ`,`EDUCACQ`, and `VEHQ`.
+
+
+```{r, echo=FALSE}
+bestmodel<-lm(TOTEXPCQ ~ AGE_REF + BLS_URBN + FOODCQ + HOUSOPCQ + EDUCACQ + VEHQ, data = deleted_good_data)
+summary(bestmodel)
+```
+
+
+From above we can conclude that the best model is:
+
+* TOTEXPCQ = -17.6295 AGE_REF - 559.4175 BLS_URBN2 + 3.5193 FOODCQ + 3.5386 HOUSOPCQ + 2.4981 EDUCACQ + 281.5805 VEHQ
+  
+From this model, we can interpret our coefficient as follows:
+
+
+* With other predictors fixed, on average, the total expenditure of a household will decrease by $17.6295 for every year a person gets older. 
+
+
+* With other predictors stay fixed, on average,the total expenditure of a household will decrease by $559.4175 when this household live in rural. 
+
+
+* With other predictors stay fixed, on average, the total expenditure of a household will increase by $3.5193 when the household spend one more dollar on food in current quarter.
+
+
+* With other predictors stay fixed, on average, the total expenditure of a household will increase by $3.5386  when the household spend one more dollar on household operation in current quarter.
+
+
+* With other predictors stay fixed, on average, the total expenditure of a household will increase by $2.4981 when the household spend one more dollar on education.
+
+
+* With other predictors stay fixed, on average, the total expenditure of a household will increase by $281.5805 when the household has one more vehicle.
+
+
+
+
+
+
+
+
+
+
+
+
+### Multicollinearity
+```{r, echo = FALSE}
+cor(cbind(deleted_good_data$AGE_REF,deleted_good_data$BLS_URBN, deleted_good_data$FOODCQ, deleted_good_data$EDUCACQ,deleted_good_data$VEHQ))
+```
+
+
+From above we can conclude that in our best model, multicollinearity among predictors does not appear to be a problem, because we have very low correlation between predictors.
+
+
+
+
+### Residual Control
+
+
+
+
+Residual control is an essential part to ensure our best model is valid. In a perfect world, we want to see our residual to have:
+
+
+
+
+* Constant variance
+* Normally distributed
+* Independent
+* Zero mean   
+
+
+
+
+When we look at residual plot, we discover that the residuals for this model do not have constant variance because it formed a triangle pattern. Ideally we want to see a cloud of residuals that does not appear to be any pattern. Also looking at QQ plot, we see the heavy tail on both sides of the qqline, which indicates that the residual does not appear to be normal. Ideally, we want to see a straight line to show that it is part of the normal distribution family.Therefore, Response transformation is needed to overcome this issue.
+
+
+
+
+```{r,echo=FALSE}
+par(mfrow = c(2,2))
+plot(bestmodel)
+```
+#### Transformation
+
+
+According to Boxcox method introduced in class, the transformation method guideline follows the following table:
+  
+  
+  
+
+
+
+
+ 
+
+
+Lambda | Transformation needed 
+----------- | ------------- 
+-2 | 1/y^2
+-1 | 1/y
+-0.5 | 1/sqrt(y)
+0 | 1/ln(y)
+0.5 | sqrt(y)
+1 | y
+2 | y^2
+
+
+Now let’s look at our Boxcox Lambda value in our model.
+
+
+```{r, echo= FALSE}
+library(MASS)
+BC<-boxcox(bestmodel)
+```
+
+
+
+
+From the result above, we have found that the best transformation method is log transformation since our lambda value is very close to `0`.
+
+
+Therefore, our transformed model becomes:
+
+
+log(TOTEXPCQ) = 7.810 - 5.943e-03*AGE_REF - 1.295e-01*BLS_URBN2 + 6.601e-04*FOODCQ + 5.213e-04*HOUSOPCQ + 2.772e-04*EDUCACQ + 6.198e-02*VEHQ. 
+
+
+```{r, , echo= FALSE}
+bestmodel<-lm(log(TOTEXPCQ) ~ AGE_REF + BLS_URBN + FOODCQ + HOUSOPCQ + EDUCACQ + VEHQ, data = deleted_good_data)
+``` 
+Then we need to verify that our transformation is indeed effective by looking at different plots for our new best model. We will examine our new residuals and outlier to confirm the validity of our new best model.
+
+
+
+
+```{r,echo=FALSE}
+par(mfrow=c(2,2))
+plot(bestmodel)
+```
+
+
+In the transformed model, we can clear see the improvements of our residual from “Residual vs Fitted” plot, as the triangle pattern disappeared. QQ plot also have better looks as the previous one has heavy tails and now mass majority of the data follow the normal distributions. Although our residuals do not appear to be perfect, we can still conclude that our residual control is good enough to make sure our best model is valid. 
+
+
+
+
+###Validation
+
+
+Since we have confirm that our best model is a valid model, we want to know can our model well predict outcomes? If our best model fail to predict outcomes, even if it is a valid model, it is not a good regression model we want to use in our real life. Therefore, we have used several methods to verify the accuracy of our model. 
+
+
+```{r,echo=FALSE}
+fit1<-lm(log(TOTEXPCQ)~AGE_REF+BLS_URBN+FOODCQ+HOUSOPCQ+EDUCACQ+VEHQ, data = deleted_good_data)
+summary(fit1)
+# PRESS statistic of fit 1
+library(MPV)
+PRESS(fit1)
+```
+
+
+PRESS residuals (deleted residuals) are obtained from fitting a regression model with a single observation deleted. PRESS statistics is calculated as the sums of squares of the prediction residuals for those observations. In our analysis, our PRESS statistics is 601.1452. Considering we have around 2000 observation, our PRESS statistics is good for our model.  
+
+
+
+
+Another validation method is data-splitting method. We use half of our data from form the same model. And use this model to predict the other half of the data. We then compare our predicted value against our real observation values to see the accuracy of our model. If our model is indeed a good predicting model, we should see a small difference in the errors. In our analysis, we will use MSP vs MSE to help us make a decision.
+
+
+```{r,echo=FALSE}
+a <- 1:1844
+sample_922 <- sample(a,922)
+point_delete <- deleted_good_data[-sample_922,]
+fit_delete <- lm(log(TOTEXPCQ)~AGE_REF+BLS_URBN+FOODCQ+HOUSOPCQ+EDUCACQ+VEHQ, data = point_delete)
+anova(fit_delete)
+```
+From above table, we have found the Mean Square Error(MSE) is 0.290
+
+
+```{r,echo=FALSE}
+omitted <- deleted_good_data[sample_922,]
+predicted <- predict(fit_delete, new = omitted[,c(2,5,6,7,9,10)])
+yi_yi_hat <- log(omitted$TOTEXPCQ) - predicted
+MSP <- sum((yi_yi_hat)^2)/922
+MSP
+```
+Compare to MSE = 0.290, our model MSP = 0.3575745, while they are not equal to each other, we can tell that they are pretty close. This means our predicting model is accurate enough to do the job. Hence we conclude that our model is a valid regression model. 
+
+
+
+
+### Outlier Control
+
+
+#### Find Influential Points
+
+
+In our outlier analysis, we are going to use cook’s distance to determine influence, and Hii matrix to determine leverage points.
+
+
+Cook’s distance is a measure for the influence each point in linear regression. It is computed by comparing the parameter estimates obtained when using all points and the parameter estimates obtained when deleting the i th observation. In general, a cook’s distance, Di > 1 is good indicator that our observation has large influence to the model. 
+
+
+```{r,echo=FALSE}
+tail(sort(cooks.distance(fit1)))
+```
+We find that position 4895 is 1.22386494. This indicate that point at position 4895 is an influential point. 
+
+
+##### Interpret Influential Point
+```{r, echo = FALSE}
+data[4895,][,c(-1,-2,-3,-9,-15)]
+```
+We see that this house only have 2 people lived in and their age are 44 and 45. but their food expenditure in current quarter is the highest in the whole data set. Thus we assume this might be the reason why it is such an influential outlier. 
+
+
+#### Find Leverage Points
+A leverage point is an observation, that has an unusual predictor value(very different from  the bulk of the observations), but that lies on or at least very close to the regression surface determined by the rest of the data. 
+In our analysis, we use hat matrix to identifying leverage points. The elements hii if the hat matrix may be interpreted as the leverage that the ith observation yi exerts on the jth fitted value yi_hat. The diagonal entries hii of H can be seen as a measure for how far the ith observation lies from the center of the x-space.
+The rule of thumb is to consider any point for which hii exceeds 2(k+1)/n a leverage point.
+
+
+```{r,echo=FALSE}
+X <- cbind(1, AGE_REF, BLS_URBN, FOODCQ, HOUSOPCQ, EDUCACQ, VEHQ)
+H <- X%*%solve(t(X)%*%X)%*%t(X)
+lev <- cbind(good_data$id, diag(H))
+#lev[order(lev[,2]),]
+#tail(lev[order(lev[,2]),],102)
+number_of_large_hii <- 102
+```
+```{r,echo=FALSE}
+number_of_large_hii
+```
+
+
+hii > 2(k+1)/n is the formula we used to find the cutoff point.
+In our case, hii > 2*(6+1)/1844 = 0.007592191. We see 102 leverage points but this is only 5.5% of the total data points.
+
+
+
+
+
+
+## Conclusion
+
+
+
+
+From all the analyses above, we have known the average U.S household expenditure level ($3582), we have confirmed that the women tend to spend more than men by analyzing the effect of increasing ratio of female in a household on total expenditure. We have also found our best model and we have gone through a chain of processes to make sure we have a valid model. Our best model contains 6 variables. Among those 6 variables, 5 of those variables are household features and only 1 variable is individual features. This finding leads us to think that the deciding factors of household expenditure might lean more towards the family financial healthiness rather than individual influence such as age or gender. Because the driver of our best models are mostly household expenditures variables. However, we need more data and evidence to perform more detailed analysis to confirm this theory.  
